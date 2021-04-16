@@ -30,8 +30,7 @@ int main(int argc, char** argv) {
   }
 
   BFVM* vm = vm_create();
-
-  int res = lex_file(fpath, &vm->instructions);
+  int res = lex_file(fpath, vm);
   if (res == -1) {
     printf("File at path %s not found\n", fpath);
     vm_destroy(vm);

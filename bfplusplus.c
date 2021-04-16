@@ -4,208 +4,150 @@
 
 #include "bfplusplus.h"
 
-int lex_file(const char* fpath, BFInstructions* dest) {
-#define ADD_INST(dest, inst) \
-  do { \
-    dest->length++; \
-    dest->insts = (BFInst*) realloc(dest->insts, sizeof(BFInst) * dest->length); \
-    dest->insts[dest->length-1] = inst; \
-  } while (0)
-
-  FILE* f = fopen(fpath, "r");
-  if (f == NULL) {
-    return -1;
+static void vm_grow_tape(BFVM* vm) {
+  size_t old_len = vm->tape_length;
+  size_t new_len = (size_t) old_len * TAPE_GROW_RATE;
+  if (new_len > TAPE_MAX_LENGTH) {
+    new_len = TAPE_MAX_LENGTH;
   }
 
-  int c;
-  while ((c = getc(f)) != EOF) {
-    switch ((char) c) {
-      case '+':
-        ADD_INST(dest, INST_PLUS);
-        break;
+  size_t tp_offset = vm->ptr - vm->tape;
 
-      case '-':
-        ADD_INST(dest, INST_MINUS);
-        break;
-
-      case '<':
-        ADD_INST(dest, INST_MOVE_LEFT);
-        break;
-
-      case '>':
-        ADD_INST(dest, INST_MOVE_RIGHT);
-        break;
-
-      case '[':
-        ADD_INST(dest, INST_OPEN_LOOP);
-        break;
-
-      case ']':
-        ADD_INST(dest, INST_CLOSE_LOOP);
-        break;
-
-      case '{':
-        ADD_INST(dest, INST_OPEN_FN);
-        break;
-
-      case '}':
-        ADD_INST(dest, INST_CLOSE_FN);
-        break;
-
-      case ',':
-        ADD_INST(dest, INST_GET_CHAR);
-        break;
-
-      case '.':
-        ADD_INST(dest, INST_PUT_CHAR);
-        break;
-
-      default:
-        /* Ignore all other characters */
-        break;
-    }
+  vm->tape_length = new_len;
+  vm->tape = (BFCell*) realloc(vm->tape, sizeof(BFCell) * vm->tape_length);
+  if (vm->tape == NULL) {
+    throw_fault("not enough memory for cell access");
   }
 
-  return 0;
-#undef ADD_INST
-}
-void throw_fault(const char* msg) {
-  fprintf(stderr, "%s\n", msg);
-  exit(1);
-}
-
-BFVM* vm_create() {
-  BFVM* out = (BFVM*) malloc(sizeof(BFVM));
-
-  out->ptr = out->cells;
-  for (int i=0; i<VM_NO_CELLS; i++) {
-    out->cells[i].type = TYPE_BYTE;
-    out->cells[i].as.BYTE = 0;
+  for (BFCell* local = vm->tape + old_len; local<vm->tape + vm->tape_length; local++) {
+    local->type = TYPE_VALUE;
+    local->as.VALUE = 0;
   }
 
-  out->instructions.insts = NULL;
-  out->instructions.length = 0;
-}
-void vm_destroy(BFVM* vm) {
-  for (int i=0; i<VM_NO_CELLS; i++) {
-    cell_destroy(vm->cells[i]);
-  }
-
-  free(vm->instructions.insts);
-  free(vm);
-}
-
-void fn_destroy(BFFn* fn) {
-  free(fn->insts);
-  free(fn);
-}
-void cell_destroy(BFCell cell) {
-
-  if (cell.type == TYPE_FN) {
-    fn_destroy(cell.as.FN);
-  }
+  vm->ptr = vm->tape + tp_offset;
 }
 
 int vm_run(BFVM* vm) {
-  int ip = 0;
-  int pos = 0;
 
-  int* les = NULL; // Loop end stack
-  int les_len = 0;
+#define IP (vm->ip)
+#define VALIDIP (IP < vm->instructions.insts + vm->instructions.length && IP >= vm->instructions.insts)
+#define INST (*IP)
+#define TP (vm->ptr)
+#define VALIDTP (TP < vm->tape + TAPE_MAX_LENGTH && TP >= vm->tape)
+#define NEED_GROWTH (TP >= vm->tape + vm->tape_length)
+#define CELL (*TP)
+#define ISVALUE (CELL.type == TYPE_VALUE)
+#define ISZERO (ISVALUE && CELL.as.VALUE == 0)
 
-  while (ip < vm->instructions.length) {
-#define INST vm->instructions.insts[ip]
-#define CELL (*(vm->ptr))
+  BFInst** loop_stack = NULL;
+  size_t loop_stack_length = 0;
+
+#define PUSH_LS(iptr) \
+  do { \
+    loop_stack_length++; \
+    loop_stack = (BFInst**) realloc(loop_stack, sizeof(BFInst*) * loop_stack_length); \
+    if (loop_stack == NULL) { throw_fault("maximum possible loop depth exceeded"); } \
+    loop_stack[loop_stack_length-1] = iptr; \
+  } while (0)
+#define READ_LS (loop_stack[loop_stack_length-1])
+#define SHRINK_LS \
+  do { \
+    loop_stack_length--; \
+    if (loop_stack_length > 0) { \
+      loop_stack = (BFInst**) realloc(loop_stack, sizeof(BFInst*) * loop_stack_length); \
+    } \
+    else { \
+      free(loop_stack); \
+      loop_stack = NULL; \
+    } \
+  } while (0)
+
+  while (VALIDIP) {
+
     switch (INST) {
 
       case INST_PLUS:
-        if (CELL.type != TYPE_BYTE) { throw_fault("+ operation not valid on function"); }
-        CELL.as.BYTE++;
-        ip++;
+        if (!ISVALUE) { throw_fault("+ operation not valid on function"); }
+        CELL.as.VALUE++;
         break;
 
       case INST_MINUS:
-        if (CELL.type != TYPE_BYTE) { throw_fault("+ operation not valid on function"); }
-        CELL.as.BYTE--;
-        ip++;
+        if (!ISVALUE) { throw_fault("- operation not valid on function"); }
+        CELL.as.VALUE--;
         break;
 
       case INST_MOVE_LEFT:
-        pos--;
-        if (pos < 0) { throw_fault("< operator took pointer beyond valid region"); }
-        vm->ptr--;
-        ip++;
+        TP--;
+        if (!VALIDTP) { throw_fault("< operator took pointer beyond valid region"); }
         break;
 
       case INST_MOVE_RIGHT:
-        pos++;
-        if (pos > VM_NO_CELLS-1) { throw_fault("> operator took pointer beyond valid region"); }
-        vm->ptr++;
-        ip++;
+        TP++;
+        if (!VALIDTP) { throw_fault("> operator took pointer beyond valid region"); }
+        if (NEED_GROWTH) {
+          vm_grow_tape(vm);
+        }
         break;
 
       case INST_OPEN_LOOP: {
-        if (CELL.type == TYPE_BYTE && CELL.as.BYTE != 0) {
-          les_len++;
-          les = (int*) realloc(les, sizeof(int) * les_len);
-          les[les_len-1] = ip;
-          ip++;
+        if (!ISZERO) {
+          PUSH_LS(IP);
         }
         else {
-          ip++;
-          int loop_depth = 0;
+          IP++;
+          size_t loop_depth = 0;
           while (!(INST == INST_CLOSE_LOOP && loop_depth == 0)) {
             if (INST == INST_OPEN_LOOP) { loop_depth++; }
             else if (INST == INST_CLOSE_LOOP) { loop_depth--; }
-            ip++;
+            IP++;
+            if (!VALIDIP) { throw_fault("mismatched loop brackets"); }
           }
-          ip++;
         }
       } break;
 
       case INST_CLOSE_LOOP: {
-        int ret = les[les_len-1];
 
-        if (CELL.type == TYPE_BYTE && CELL.as.BYTE != 0) {
-          ip = ret;
+        if (!ISZERO) {
+          if (loop_stack_length == 0) { throw_fault("mismatched loop brackets"); }
+          IP = READ_LS;
         }
         else {
-          les_len--;
-          if (les_len > 0) {
-            les = (int*) realloc(les, les_len-1);
-          }
-          else {
-            free(les);
-            les = NULL;
-          }
+          SHRINK_LS;
         }
-        ip++;
       } break;
 
-      // todo more
+
 
       case INST_GET_CHAR:
-        if (CELL.type != TYPE_BYTE) { throw_fault(", operation not valid on function"); }
-        CELL.as.BYTE = (uint8_t) getchar();
-        ip++;
+        if (!ISVALUE) { throw_fault(", operation not valid on function"); }
+        CELL.as.VALUE = (uint16_t) getchar();
         break;
 
       case INST_PUT_CHAR:
-        if (CELL.type != TYPE_BYTE) { throw_fault(". operation not valid on function"); }
-        putchar((int) CELL.as.BYTE);
-        ip++;
+        if (!ISVALUE) { throw_fault(". operation not valid on function"); }
+        putchar((int) CELL.as.VALUE);
         break;
 
     }
-#undef INST
+    IP++;
+
+  }
+
+  if (loop_stack_length != 0) {
+    free(loop_stack);
+    throw_fault("mismatched loop brackets");
   }
 
   return 0;
-
-}
-
-void cells_dump(BFVM* vm) {
-  for (int i=0; i<VM_NO_CELLS; i++) {
-    printf("Cell %d is type %d, as byte is %d\n", i, vm->cells[i].type, (int) vm->cells[i].as.BYTE);
-  }
+#undef IP
+#undef VALIDIP
+#undef INST
+#undef TP
+#undef VALIDTP
+#undef NEED_GROWTH
+#undef CELL
+#undef ISZERO
+#undef PUSH_LS
+#undef READ_LS
+#undef SHRINK_LS
 }

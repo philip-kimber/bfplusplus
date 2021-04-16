@@ -26,55 +26,61 @@ enum _BFInst {
   INST_CLOSE_LOOP,  /* ] */
   INST_OPEN_FN,     /* { */
   INST_CLOSE_FN,    /* } */
+  INST_OPEN_CALL,   /* ( */
+  INST_CLOSE_CALL,  /* ) */
   INST_GET_CHAR,    /* , */
   INST_PUT_CHAR,    /* . */
 };
-
 struct _BFInstructions {
   BFInst* insts;
-  int length;
+  size_t length;
 };
-
 struct _BFCell {
   enum {
-    TYPE_BYTE,
+    TYPE_VALUE,
     TYPE_FN,
   } type;
 
   union {
     BFFn* FN;
-    uint8_t BYTE;
+    uint16_t VALUE;
   } as;
 };
-
 struct _BFFn {
   BFInst* insts;
   int length;
 };
 
-#define VM_NO_CELLS 300
+#define TAPE_MAX_LENGTH 30000
+#define TAPE_INITIAL_LENGTH 100
+#define TAPE_GROW_RATE 1.5
 
 struct _BFVM {
-  BFCell cells[VM_NO_CELLS];
+  BFCell* tape;
+  uint16_t tape_length;
   BFCell* ptr;
 
   BFInstructions instructions;
+  BFInst* ip;
 };
 
 /* ---- */
 
-int lex_file(const char* fpath, BFInstructions* dest);
-void throw_fault(const char* msg);
+/* lexer.c */
+int lex_file(const char* fpath, BFVM* vm);
 
+/* utils.c */
+void throw_fault(const char* msg);
+void fn_destroy(BFFn* fn);
+void cell_destroy(BFCell cell);
+void cells_dump(BFVM* vm);
+
+/* bfvm.c */
 BFVM* vm_create();
 void vm_destroy(BFVM* vm);
 
-void fn_destroy(BFFn* fn);
-void cell_destroy(BFCell cell);
-
+/* bfplusplus.c */
 int vm_run(BFVM* vm);
-
-void cells_dump(BFVM* vm);
 
 
 #endif /* BF_PLUS_PLUS_H */
