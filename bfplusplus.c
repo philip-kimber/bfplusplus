@@ -120,12 +120,12 @@ int vm_run(BFVM* vm) {
 
       case INST_GET_CHAR:
         if (!ISVALUE) { throw_fault(", operation not valid on function"); }
-        CELL.as.VALUE = (uint16_t) getchar();
+        CELL.as.VALUE = b_getchar();
         break;
 
       case INST_PUT_CHAR:
         if (!ISVALUE) { throw_fault(". operation not valid on function"); }
-        putchar((int) CELL.as.VALUE);
+        b_putchar(CELL.as.VALUE);
         break;
 
     }

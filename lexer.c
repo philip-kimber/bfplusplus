@@ -68,6 +68,23 @@ int lex_file(const char* fpath, BFVM* vm) {
         ADD_INST(vm, INST_PUT_CHAR);
         break;
 
+      /* Single line comments: ! ignores all characters until newline */
+      case '!':
+        c = getc(f);
+        while (!(c == EOF || c == '\n')) {
+          c = getc(f);
+        }
+        break;
+
+      /* Multi line comments: all characters ignored between * and * */
+      case '*':
+        c = getc(f);
+        while (!(c == EOF || c == '*')) {
+          c = getc(f);
+        }
+        if (c == EOF) { throw_fault("unterminated mulit-line comment"); }
+        break;
+
       default:
         /* Ignore all other characters */
         break;

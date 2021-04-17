@@ -74,6 +74,8 @@ void throw_fault(const char* msg);
 void fn_destroy(BFFn* fn);
 void cell_destroy(BFCell cell);
 void cells_dump(BFVM* vm);
+uint16_t b_getchar();
+void b_putchar(uint16_t c);
 
 /* bfvm.c */
 BFVM* vm_create();

@@ -1,0 +1,4 @@
+! Basic cat program as example
+! EOF set to return zero, which in Windows implementation can be sent as Ctrl-Z
+
+,[.,]

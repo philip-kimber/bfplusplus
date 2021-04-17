@@ -1,0 +1,4 @@
+! More complicated cat program which reads/prints until EOF (Ctrl-Z on windows)
+! and then outputs number of characters written in decimal (TODO)
+
+,[.,]

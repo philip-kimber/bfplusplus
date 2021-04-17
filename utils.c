@@ -25,3 +25,21 @@ void cells_dump(BFVM* vm) {
     printf("Cell %d is type %d, as byte is %d\n", i, vm->tape[i].type, (int) vm->tape[i].as.VALUE);
   }
 }
+
+uint16_t b_getchar() {
+  int c = getchar();
+  
+  if (c == EOF || c == 0) {
+    return 0;
+  }
+  else {
+    unsigned char out = (unsigned char) c;
+    uint16_t out16 = (uint16_t) out;
+    return out16;
+  }
+
+}
+void b_putchar(uint16_t c) {
+  unsigned char out = (unsigned char) c;
+  putchar(out);
+}

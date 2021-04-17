@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "bfplusplus.h"
+#include "rawmode.h"
 
 int main(int argc, char** argv) {
 
@@ -39,8 +40,10 @@ int main(int argc, char** argv) {
   }
   free(fpath);
 
+  enter_raw_mode();
   vm_run(vm);
-
+  exit_raw_mode();
+  
   printf("\n");
   /*
   printf("Cell dump\n");
