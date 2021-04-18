@@ -17,8 +17,9 @@ BFVM* vm_create() {
 
   out->instructions.insts = NULL;
   out->instructions.length = 0;
-
   out->ip = NULL;
+
+  out->parent = NULL; 
 }
 void vm_destroy(BFVM* vm) {
   for (int i=0; i<vm->tape_length; i++) {

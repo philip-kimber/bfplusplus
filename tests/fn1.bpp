@@ -1,0 +1,58 @@
+!!! A program showing different ways of printing 'hello' with functions
+
+!! Basic, with void(void) functions:
+*0*   {++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++.}         ! Prints 'H'
+*1* > {+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++.}            ! Prints 'E'
+*2* > {++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++.}     ! Prints 'L'
+*3* > {+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++.}  ! Prints 'O'
+
+! Calling:
+> [-] ()            ! New cell, and set value to 0, then call function at 0
+  + ()              ! Set value to 1, so call function at 1
+  + ()              ! Set value to 2, so call function at 2
+  ()                ! Call function at 2 again
+  + ()              ! Set value to 3, so call function at 3
+
+[-] ++++++++++. *print newline*
+
+!! Functions with arguments but no return value:
+*5* > {<++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++.}      ! Takes a letter by index and prints in uppercase
+*6* > {<++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++.} ! Takes a letter by index and prints in lowercase
+
+! Calling fns 5 and 6
+> [-] ++++++++        ! Load 8 (index for 'h')
+> [-] +++++ (-)       ! Load address 5 and call with 1 argument
+
+> [-] +++++           ! Load 5 (index for 'e')
+> [-] ++++++ (-)      ! Load address 6 and call with 1 argument
+
+> [-] ++++++++++++    ! Load 12 (index for 'l')
+> [-] ++++++ (-) (-)  ! Load address 6 and call with 1 argument (twice)
+
+> [-] +++++++++++++++ ! Load 15 (index for 'o')
+> [-] ++++++ (-)      ! Load address 6 and call with 1 argument
+
+[-] ++++++++++. *print newline*
+
+!! Functions with arguments and a return value:
+*15* > {<++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++}      ! Takes a letter by index and returns ASCII for its uppercase representation
+*16* > {<++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++}    ! Takes a letter by index and returns ASCII for its lowercase representation
+
+! Calling fns 15 and 16
+> [-] ++++++++                ! Load 8 (index for 'h')
+> [-] +++++++++++++++ (-+)    ! Load address 15 and call with 1 argument, returning 1 cell
+> .                           ! Print the result
+
+> [-] +++++                   ! Load 5 (index for 'e')
+> [-] ++++++++++++++++ (-+)   ! Load address 16 and call with 1 argument, returning 1 cell
+> .                           ! Print the result
+
+> [-] ++++++++++++            ! Load 12 (index for 'l')
+> [-] ++++++++++++++++ (-+)   ! Load address 16 and call with 1 argument, returning 1 cell
+> . .                         ! Print the result (twice)
+
+> [-] +++++++++++++++         ! Load 15 (index for 'o')
+> [-] ++++++++++++++++ (-+)   ! Load address 16 and call with 1 argument, returning 1 cell
+> .                           ! Print the result
+
+[-] ++++++++++. *print newline*

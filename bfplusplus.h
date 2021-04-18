@@ -14,8 +14,9 @@
 typedef enum _BFInst BFInst;
 typedef struct _BFInstructions BFInstructions;
 typedef struct _BFCell BFCell;
-typedef struct _BFFn BFFn;
+typedef struct _BFInstructions BFFn;
 typedef struct _BFVM BFVM;
+typedef struct _BFCall BFCall;
 
 enum _BFInst {
   INST_PLUS = 0,    /* + */
@@ -46,10 +47,6 @@ struct _BFCell {
     uint16_t VALUE;
   } as;
 };
-struct _BFFn {
-  BFInst* insts;
-  int length;
-};
 
 #define TAPE_MAX_LENGTH 30000
 #define TAPE_INITIAL_LENGTH 100
@@ -62,6 +59,18 @@ struct _BFVM {
 
   BFInstructions instructions;
   BFInst* ip;
+
+  BFVM* parent;
+};
+
+struct _BFCall {
+  BFCell* arguments;
+  uint16_t arg_count;
+
+  BFFn* fn;
+
+  BFCell* results;
+  uint16_t res_count;
 };
 
 /* ---- */
@@ -71,17 +80,23 @@ int lex_file(const char* fpath, BFVM* vm);
 
 /* utils.c */
 void throw_fault(const char* msg);
-void fn_destroy(BFFn* fn);
 void cell_destroy(BFCell cell);
 void cells_dump(BFVM* vm);
 uint16_t b_getchar();
 void b_putchar(uint16_t c);
+
+BFFn* fn_create();
+void fn_destroy(BFFn* fn);
+void instructions_copy(BFInstructions* dest, BFInstructions* src);
+BFCell cell_copy(BFCell c);
 
 /* bfvm.c */
 BFVM* vm_create();
 void vm_destroy(BFVM* vm);
 
 /* bfplusplus.c */
+void vm_grow_tape(BFVM* vm);
+void run_function_call(BFVM* vm, BFCall* call);
 int vm_run(BFVM* vm);
 
 

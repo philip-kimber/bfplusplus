@@ -1,10 +1,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "bfplusplus.h"
 
-static void vm_grow_tape(BFVM* vm) {
+void vm_grow_tape(BFVM* vm) {
   size_t old_len = vm->tape_length;
   size_t new_len = (size_t) old_len * TAPE_GROW_RATE;
   if (new_len > TAPE_MAX_LENGTH) {
@@ -25,6 +26,40 @@ static void vm_grow_tape(BFVM* vm) {
   }
 
   vm->ptr = vm->tape + tp_offset;
+}
+
+void run_function_call(BFVM* vm, BFCall* call) {
+
+  BFVM* callvm = vm_create();
+  callvm->parent = vm;
+
+  callvm->instructions.length = call->fn->length;
+  callvm->instructions.insts = (BFInst*) malloc(sizeof(BFInst) * callvm->instructions.length);
+  memcpy(callvm->instructions.insts, call->fn->insts, sizeof(BFInst) * callvm->instructions.length);
+
+  callvm->ip = callvm->instructions.insts;
+
+  for (int i=0; i<call->arg_count; i++) {
+    *(callvm->ptr) = call->arguments[i];
+    callvm->ptr++;
+    if (callvm->ptr >= callvm->tape + callvm->tape_length) {
+      vm_grow_tape(callvm);
+    }
+  }
+
+  vm_run(callvm);
+
+  for (int i=0; i<call->res_count; i++) {
+    call->results[i] = cell_copy(*(callvm->ptr));
+
+    callvm->ptr++;
+    if (callvm->ptr >= callvm->tape + callvm->tape_length) {
+      vm_grow_tape(callvm);
+    }
+  }
+
+  vm_destroy(callvm);
+
 }
 
 int vm_run(BFVM* vm) {
@@ -116,7 +151,92 @@ int vm_run(BFVM* vm) {
         }
       } break;
 
+      case INST_OPEN_FN: {
+        if (CELL.type == TYPE_FN) {
+          fn_destroy(CELL.as.FN);
+        }
+        BFFn* fn = fn_create();
+        IP++;
+        size_t fn_depth = 0;
+        while (!(INST == INST_CLOSE_FN && fn_depth == 0)) {
+          if (INST == INST_OPEN_FN) { fn_depth++; }
+          else if (INST == INST_CLOSE_FN) { fn_depth--; }
 
+          fn->length++;
+          fn->insts = (BFInst*) realloc(fn->insts, fn->length * sizeof(BFInst));
+          fn->insts[fn->length-1] = INST;
+
+          IP++;
+          if (!VALIDIP) { throw_fault("mismatched function def brackets"); }
+        }
+        CELL.type = TYPE_FN;
+        CELL.as.FN = fn;
+      } break;
+
+      case INST_OPEN_CALL: {
+        BFCall call;
+
+        if (CELL.type != TYPE_VALUE || CELL.as.VALUE > vm->tape_length-1) { throw_fault("tried to call function with invalid address"); }
+        if (vm->tape[CELL.as.VALUE].type != TYPE_FN) { throw_fault("value at address for function call is not function"); }
+        BFCell fncell = vm->tape[CELL.as.VALUE];
+        BFFn* fn = fncell.as.FN;
+        call.fn = fn;
+
+        IP++;
+        call.arg_count = 0;
+        call.res_count = 0;
+        while (INST != INST_CLOSE_CALL) {
+          switch (INST) {
+            case INST_MINUS: /* - indicates number of spaces back to start pulling arguments from */
+              call.arg_count++;
+              break;
+
+            case INST_PLUS: /* + indicates number of spaces forward to push results to */
+              call.res_count++;
+              break;
+          }
+          IP++;
+          if (!VALIDIP) { throw_fault("mismatched function call brackets"); }
+        }
+
+        if (call.arg_count == 0) {
+          call.arguments = NULL;
+        }
+        else {
+          call.arguments = (BFCell*) malloc(sizeof(BFCell) * call.arg_count);
+        }
+        TP -= call.arg_count;
+        for (int i=0; i<call.arg_count; i++) {
+          call.arguments[i] = cell_copy(CELL);
+          TP++;
+        }
+
+        if (call.res_count == 0) {
+          call.results = NULL;
+        }
+        else {
+          call.results = (BFCell*) malloc(sizeof(BFCell) * call.res_count);
+        }
+
+        run_function_call(vm, &call);
+
+        for (int i=0; i<call.res_count; i++) {
+          TP++;
+          CELL = cell_copy(call.results[i]);
+        }
+        TP -= call.res_count;
+
+        for (int i=0; i<call.arg_count; i++) {
+          cell_destroy(call.arguments[i]);
+        }
+        free(call.arguments);
+
+        for (int i=0; i<call.res_count; i++) {
+          cell_destroy(call.results[i]);
+        }
+        free(call.results);
+
+      } break;
 
       case INST_GET_CHAR:
         if (!ISVALUE) { throw_fault(", operation not valid on function"); }

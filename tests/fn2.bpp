@@ -1,0 +1,18 @@
+!!! A program showing further function definitions and calls
+
+!! First-class functions (sort of)
+  {>  {<<[->+<]>}  }              ! Function to get adder (in cell 0)
+
+> [-] (+)                         ! Call address 0, with 1 return value which means that the adder fn will be in cell #2
+> * adder fn is here *
+> [-] ++++++++++++++++++++++++++++++++++++++++++++++++++      ! Load 50
+> [-] ++++++++++++++++++++++++++++++++++++++++                ! Load 40
+> [-] ++ (--+)                    ! Call address 2, returning 1 value
+> .                               ! Output result (should be 90) as ASCII (goes to Z)
+
+> [-] (+)                         ! Call address 0 to get another adder to be in 8
+> * second adder fn is here *
+> [-] ++++++++++++++++++++++++++++++++++++++++                 ! Load 40
+> [-] ++++++++++++++++++++++++++++++                           ! Load 30
+> [-] ++++++++ (--+)              ! Call address 8, returning 1 value
+> .                               ! Output result (should be 70) as ASCII (goes to F)
