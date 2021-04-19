@@ -4,6 +4,13 @@
 
 #include "bfplusplus.h"
 
+/*
+ * Lexes a file of BF++ source, putting the results into a VM's Instructions
+ * struct, and also positioning the VM's instruction pointer to the first
+ * instruction.
+ *
+ * Returns -1 if the file is not found; otherwise 0
+ */
 int lex_file(const char* fpath, BFVM* vm) {
 #define ADD_INST(vm, inst) \
   do { \

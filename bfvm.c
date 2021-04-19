@@ -4,6 +4,10 @@
 
 #include "bfplusplus.h"
 
+/*
+ * Allocates a new VM structure and sets fields to initial values.
+ * Instructions are initialised as blank; can be added by lexer
+ */
 BFVM* vm_create() {
   BFVM* out = (BFVM*) malloc(sizeof(BFVM));
 
@@ -22,6 +26,10 @@ BFVM* vm_create() {
   out->parent = NULL;
   return out;
 }
+
+/*
+ * Destroys, frees VM and all cells and instructions
+ */
 void vm_destroy(BFVM* vm) {
   for (int i=0; i<vm->tape_length; i++) {
     cell_destroy(vm->tape[i]);

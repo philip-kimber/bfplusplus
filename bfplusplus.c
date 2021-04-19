@@ -5,6 +5,15 @@
 
 #include "bfplusplus.h"
 
+/*
+ * Grows the VM's tape based on TAPE_GROW_RATE, making sure to preserve the
+ * tape pointer in correct position in case realloc returns a different start.
+ *
+ * If the growth puts the VM beyond the TAPE_MAX_LENGTH, the length will be set
+ * to TAPE_MAX_LENGTH, which the caller may need to check for.
+ *
+ * Throws a fault if realloc returns NULL.
+ */
 void vm_grow_tape(BFVM* vm) {
   size_bf old_len = vm->tape_length;
   size_bf new_len = (size_bf) old_len * TAPE_GROW_RATE;
@@ -28,6 +37,13 @@ void vm_grow_tape(BFVM* vm) {
   vm->ptr = vm->tape + tp_offset;
 }
 
+/*
+ * Runs a function call in a new VM based on the values in the referenced BFCall
+ * struct, essentially recursively because this calls vm_run() on the new VM.
+ *
+ * Sets the results in call->results to copied versions of the cells, so that
+ * the call VM can be destroyed before returning
+ */
 void run_function_call(BFVM* vm, BFCall* call) {
 
   BFVM* callvm = vm_create();
@@ -62,21 +78,52 @@ void run_function_call(BFVM* vm, BFCall* call) {
 
 }
 
+/*
+ * Runs a VM, executing the instructions, calling other functions etc.
+ * The main function of the interpreter.
+ *
+ * Quite a simple yet slow implementation, iterating through the instructions
+ * and switch based on different instructions. Maintains a loop_stack of return
+ * addresses for loop ends which is manipulated by the PUSH_LS, READ_LS and
+ * SHRINK_LS macros.
+ */
 void vm_run(BFVM* vm) {
 
+/* Instruction pointer */
 #define IP (vm->ip)
-#define VALIDIP (IP < vm->instructions.insts + vm->instructions.length && IP >= vm->instructions.insts)
+
+/* Is the instruction pointer within bounds? */
+#define VALIDIP \
+  (IP < vm->instructions.insts + vm->instructions.length \
+    && IP >= vm->instructions.insts)
+
+/* Current instruction */
 #define INST (*IP)
+
+/* Tape pointer */
 #define TP (vm->ptr)
-#define VALIDTP (TP < vm->tape + TAPE_MAX_LENGTH && TP >= vm->tape)
-#define NEED_GROWTH (TP >= vm->tape + vm->tape_length)
+
+/* Is the tape pointer within bounds? */
+#define VALIDTP \
+  (TP < vm->tape + TAPE_MAX_LENGTH && TP >= vm->tape)
+
+/* Does vm_grow_tape need to be called? */
+#define NEED_GROWTH \
+  (TP >= vm->tape + vm->tape_length)
+
+/* Current cell */
 #define CELL (*TP)
+
+/* Is the current cell a value? */
 #define ISVALUE (CELL.type == TYPE_VALUE)
+
+/* Is the current cell 0? */
 #define ISZERO (ISVALUE && CELL.as.VALUE == 0)
 
   BFInst** loop_stack = NULL;
   size_t loop_stack_length = 0;
 
+/* Add a return instruction address for loop to the loop stack */
 #define PUSH_LS(iptr) \
   do { \
     loop_stack_length++; \
@@ -84,7 +131,11 @@ void vm_run(BFVM* vm) {
     if (loop_stack == NULL) { throw_fault("maximum possible loop depth exceeded"); } \
     loop_stack[loop_stack_length-1] = iptr; \
   } while (0)
+
+/* Get top of loop stack without removing it */
 #define READ_LS (loop_stack[loop_stack_length-1])
+
+/* Remove the top value of the loop stack, shrinking it */
 #define SHRINK_LS \
   do { \
     loop_stack_length--; \
@@ -126,9 +177,11 @@ void vm_run(BFVM* vm) {
 
       case INST_OPEN_LOOP: {
         if (!ISZERO) {
+          /* If not zero, run loop body as normal but push return address */
           PUSH_LS(IP);
         }
         else {
+          /* If zero, skip over loop body */
           IP++;
           size_t loop_depth = 0;
           while (!(INST == INST_CLOSE_LOOP && loop_depth == 0)) {
@@ -143,19 +196,28 @@ void vm_run(BFVM* vm) {
       case INST_CLOSE_LOOP: {
 
         if (!ISZERO) {
+          /* If not zero, go back to loop start */
           if (loop_stack_length == 0) { throw_fault("mismatched loop brackets"); }
           IP = READ_LS;
         }
         else {
+          /* If zero, loop is finished; forget loop from stack */
           SHRINK_LS;
         }
       } break;
 
       case INST_OPEN_FN: {
         if (CELL.type == TYPE_FN) {
+          /*
+           * We can overwrite both functions and values with fn definitions
+           * but fn definitions need to be freed/destroyed
+           */
           fn_destroy(CELL.as.FN);
         }
+
         BFFn* fn = fn_create();
+
+        /* Add loop body instructions to Fn structure at current position */
         IP++;
         size_t fn_depth = 0;
         while (!(INST == INST_CLOSE_FN && fn_depth == 0)) {
@@ -176,11 +238,16 @@ void vm_run(BFVM* vm) {
       case INST_OPEN_CALL: {
         BFCall call;
 
+        /* Current cell should be value with function address index */
         if (CELL.type != TYPE_VALUE) { throw_fault("tried to call function with invalid address"); }
         size_bf fn_addr = CELL.as.VALUE;
 
         IP++;
 
+        /*
+         * Read through the instructions between the call brackets and discern
+         * argument count, return count and scope decorator situation
+         */
         size_t fn_sc = 0;
         int fn_sc_global = 0;
         call.arg_count = 0;
@@ -211,6 +278,7 @@ void vm_run(BFVM* vm) {
           if (!VALIDIP) { throw_fault("mismatched function call brackets"); }
         }
 
+        /* Based on the scope decorators, get VM from which to find function */
         BFVM* fnvm = vm;
         if (fn_sc_global == 1) {
           while (fnvm->parent != NULL) {
@@ -225,9 +293,11 @@ void vm_run(BFVM* vm) {
             }
           }
         }
+        /* Set call structure function to function structure from address */
         if (fnvm->tape[fn_addr].type != TYPE_FN) { throw_fault("value at address for function call is not function"); }
         call.fn = fnvm->tape[fn_addr].as.FN;
 
+        /* Push arguments */
         if (call.arg_count == 0) {
           call.arguments = NULL;
         }
@@ -235,11 +305,13 @@ void vm_run(BFVM* vm) {
           call.arguments = (BFCell*) malloc(sizeof(BFCell) * call.arg_count);
         }
         TP -= call.arg_count;
+        if (!VALIDTP) { throw_fault("tried to push invalid number of arguments"); }
         for (int i=0; i<call.arg_count; i++) {
           call.arguments[i] = cell_copy(CELL);
           TP++;
         }
 
+        /* Allocate result positions ready (arguably should be done in run_function_call) */
         if (call.res_count == 0) {
           call.results = NULL;
         }
@@ -247,14 +319,19 @@ void vm_run(BFVM* vm) {
           call.results = (BFCell*) malloc(sizeof(BFCell) * call.res_count);
         }
 
+        /* Run the function */
         run_function_call(vm, &call);
 
+        /* Pull the results */
         for (int i=0; i<call.res_count; i++) {
           TP++;
+          if (!VALIDTP) { throw_fault("tried to pull invalid number of args"); }
+          if (NEED_GROWTH) { vm_grow_tape(vm); }
           CELL = cell_copy(call.results[i]);
         }
         TP -= call.res_count;
 
+        /* Free memory allocated for call args/return etc. */
         for (int i=0; i<call.arg_count; i++) {
           cell_destroy(call.arguments[i]);
         }
@@ -278,15 +355,17 @@ void vm_run(BFVM* vm) {
         break;
 
       case INST_SCOPE_UP:
-        /* Do nothing, but no error: ' characters allowed with no effect outside call brackets */
-        break;
-
       case INST_SCOPE_GLOBAL:
-        /* Likewise, @ allowed outside call brackets */
+        /*
+         * Do nothing, but no error: ' and @ characters allowed with no effect
+         * outside call brackets
+         */
         break;
 
-      default:
-        throw_fault("unexpected instruction or mismatched loop end");
+      case INST_CLOSE_CALL:
+      case INST_CLOSE_FN:
+        /* Close instructions would always be handled by the open instructions */
+        throw_fault("mismatched function/call end");
         break;
 
     }
@@ -295,6 +374,7 @@ void vm_run(BFVM* vm) {
   }
 
   if (loop_stack_length != 0) {
+    /* If loop addresses still around and execution ended, must be mismatched */
     free(loop_stack);
     throw_fault("mismatched loop brackets");
   }
