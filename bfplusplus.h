@@ -31,6 +31,8 @@ enum _BFInst {
   INST_CLOSE_FN,    /* } */
   INST_OPEN_CALL,   /* ( */
   INST_CLOSE_CALL,  /* ) */
+  INST_SCOPE_UP,    /* ' */
+  INST_SCOPE_GLOBAL,/* @ */
   INST_GET_CHAR,    /* , */
   INST_PUT_CHAR,    /* . */
 };

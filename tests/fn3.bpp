@@ -1,0 +1,51 @@
+!!! A program to show use of the ' and @ scope decorators with function calls
+
+!! Basic use of just the @ decorator to access global functions
+* first function, at 0 of global scope
+  takes a number by index and prints in uppercase *
+{
+  <++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++.
+}
+
+* second function, at 1 of global scope
+  takes a number by index and prints in lowercase *
+> {
+  <++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++.
+}
+
+* third function, at 2 of global scope
+  takes a number by index and prints it in lower then upper case *
+> {
+  [-] (@-) ! Call 0 in global scope with given arg
+   +  (@-) ! Call 1 in global scope with given arg
+}
+
+> [-] +++++++++   ! Load 9 (index of 'i')
+> [-] ++ (-)      ! Call function at 2 with one argument
+
+> [-] ++++++++++. *print newline*
+
+!! More complex using ' to move up scope
+* function at 6 of global scope
+  takes a number by index and prints in upper and lower case *
+> {
+  [-] ('-)  ! Call 0 in scope above with given arg
+  > {       ! Define this function's own lowercase number printer, at local address 2 (assuming 1 arg was passed)
+    <++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++.
+  }
+  < [-] ++ (-)    ! Call 2 of this function's scope with given arg
+}
+
+> [-] ++++++++    ! Load 8 (index of 'h')
+> [-] ++++++ (-)  ! Call function at 6 with one argument
+! This works fine in the global scope because there is a function available at 0 which prints uppercase
+! But we can also call from within a function with its own function at position 0
+* function at 9 of global scope
+  calls function 6, but with a different function at 0 for different effects *
+> {
+  {<+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++.}   ! Function at local address zero prints a letter by index but with a +3 shift (non-wrapping)
+  > [-] +++       ! Load 3 (index of 'c')
+  > [-] ++++++ (@-)       ! Load 6 and call function at global scope address 6, with argument
+}
+
+> [-] +++++++++ () ! Call 9

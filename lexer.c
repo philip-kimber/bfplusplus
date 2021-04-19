@@ -52,6 +52,14 @@ int lex_file(const char* fpath, BFVM* vm) {
         ADD_INST(vm, INST_CLOSE_CALL);
         break;
 
+      case '\'':
+        ADD_INST(vm, INST_SCOPE_UP);
+        break;
+
+      case '@':
+        ADD_INST(vm, INST_SCOPE_GLOBAL);
+        break;
+
       case '{':
         ADD_INST(vm, INST_OPEN_FN);
         break;

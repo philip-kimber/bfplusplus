@@ -176,13 +176,13 @@ void vm_run(BFVM* vm) {
       case INST_OPEN_CALL: {
         BFCall call;
 
-        if (CELL.type != TYPE_VALUE || CELL.as.VALUE > vm->tape_length-1) { throw_fault("tried to call function with invalid address"); }
-        if (vm->tape[CELL.as.VALUE].type != TYPE_FN) { throw_fault("value at address for function call is not function"); }
-        BFCell fncell = vm->tape[CELL.as.VALUE];
-        BFFn* fn = fncell.as.FN;
-        call.fn = fn;
+        if (CELL.type != TYPE_VALUE) { throw_fault("tried to call function with invalid address"); }
+        size_bf fn_addr = CELL.as.VALUE;
 
         IP++;
+
+        size_t fn_sc = 0;
+        int fn_sc_global = 0;
         call.arg_count = 0;
         call.res_count = 0;
         while (INST != INST_CLOSE_CALL) {
@@ -195,6 +195,14 @@ void vm_run(BFVM* vm) {
               call.res_count++;
               break;
 
+            case INST_SCOPE_UP: /* ' indicates number of scopes up to take the function from */
+              fn_sc++;
+              break;
+
+            case INST_SCOPE_GLOBAL: /* @ indicates to take the function from the global scope */
+              fn_sc_global = 1;
+              break;
+
             default:
               /* Ignore other characters within call brackets */
               break;
@@ -202,6 +210,23 @@ void vm_run(BFVM* vm) {
           IP++;
           if (!VALIDIP) { throw_fault("mismatched function call brackets"); }
         }
+
+        BFVM* fnvm = vm;
+        if (fn_sc_global == 1) {
+          while (fnvm->parent != NULL) {
+            fnvm = fnvm->parent;
+          }
+        }
+        else {
+          for (int i=0; i<fn_sc; i++) {
+            fnvm = vm->parent;
+            if (fnvm == NULL) {
+              throw_fault("invalid scope up configuration, nonexistent scope");
+            }
+          }
+        }
+        if (fnvm->tape[fn_addr].type != TYPE_FN) { throw_fault("value at address for function call is not function"); }
+        call.fn = fnvm->tape[fn_addr].as.FN;
 
         if (call.arg_count == 0) {
           call.arguments = NULL;
@@ -250,6 +275,14 @@ void vm_run(BFVM* vm) {
       case INST_PUT_CHAR:
         if (!ISVALUE) { throw_fault(". operation not valid on function"); }
         b_putchar(CELL.as.VALUE);
+        break;
+
+      case INST_SCOPE_UP:
+        /* Do nothing, but no error: ' characters allowed with no effect outside call brackets */
+        break;
+
+      case INST_SCOPE_GLOBAL:
+        /* Likewise, @ allowed outside call brackets */
         break;
 
       default:
