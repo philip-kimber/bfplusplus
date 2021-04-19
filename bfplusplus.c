@@ -6,13 +6,13 @@
 #include "bfplusplus.h"
 
 void vm_grow_tape(BFVM* vm) {
-  size_t old_len = vm->tape_length;
-  size_t new_len = (size_t) old_len * TAPE_GROW_RATE;
+  size_bf old_len = vm->tape_length;
+  size_bf new_len = (size_bf) old_len * TAPE_GROW_RATE;
   if (new_len > TAPE_MAX_LENGTH) {
     new_len = TAPE_MAX_LENGTH;
   }
 
-  size_t tp_offset = vm->ptr - vm->tape;
+  size_bf tp_offset = vm->ptr - vm->tape;
 
   vm->tape_length = new_len;
   vm->tape = (BFCell*) realloc(vm->tape, sizeof(BFCell) * vm->tape_length);
@@ -62,7 +62,7 @@ void run_function_call(BFVM* vm, BFCall* call) {
 
 }
 
-int vm_run(BFVM* vm) {
+void vm_run(BFVM* vm) {
 
 #define IP (vm->ip)
 #define VALIDIP (IP < vm->instructions.insts + vm->instructions.length && IP >= vm->instructions.insts)
@@ -194,6 +194,10 @@ int vm_run(BFVM* vm) {
             case INST_PLUS: /* + indicates number of spaces forward to push results to */
               call.res_count++;
               break;
+
+            default:
+              /* Ignore other characters within call brackets */
+              break;
           }
           IP++;
           if (!VALIDIP) { throw_fault("mismatched function call brackets"); }
@@ -248,6 +252,10 @@ int vm_run(BFVM* vm) {
         b_putchar(CELL.as.VALUE);
         break;
 
+      default:
+        throw_fault("unexpected instruction or mismatched loop end");
+        break;
+
     }
     IP++;
 
@@ -258,7 +266,6 @@ int vm_run(BFVM* vm) {
     throw_fault("mismatched loop brackets");
   }
 
-  return 0;
 #undef IP
 #undef VALIDIP
 #undef INST

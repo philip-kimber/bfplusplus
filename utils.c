@@ -20,7 +20,7 @@ void cell_destroy(BFCell cell) {
 void cells_dump(BFVM* vm) {
   for (int i=0; i<vm->tape_length; i++) {
     if (vm->tape[i].type == TYPE_FN) {
-      printf("Cell %d is FN with %d instructions\n", i, vm->tape[i].as.FN->length);
+      printf("Cell %d is FN with %I64d instructions\n", i, vm->tape[i].as.FN->length);
     }
     else {
       printf("Cell %d is VALUE %d\n", i, vm->tape[i].as.VALUE);
@@ -28,20 +28,20 @@ void cells_dump(BFVM* vm) {
   }
 }
 
-uint16_t b_getchar() {
+size_bf b_getchar() {
   int c = getchar();
 
   if (c == EOF || c == 0) {
     return 0;
   }
   else {
-    unsigned char out = (unsigned char) c;
-    uint16_t out16 = (uint16_t) out;
-    return out16;
+    unsigned char uc = (unsigned char) c;
+    size_bf out = (size_bf) uc;
+    return out;
   }
 
 }
-void b_putchar(uint16_t c) {
+void b_putchar(size_bf c) {
   unsigned char out = (unsigned char) c;
   putchar(out);
 }
@@ -67,18 +67,17 @@ void instructions_copy(BFInstructions* dest, BFInstructions* src) {
 
 BFCell cell_copy(BFCell c) {
   BFCell out;
-  if (c.type == TYPE_VALUE) {
-    out.type = TYPE_VALUE;
-    out.as.VALUE = c.as.VALUE;
-    return out;
-  }
-  else if (c.type == TYPE_FN) {
+  if (c.type == TYPE_FN) {
     out.type = TYPE_FN;
     out.as.FN = fn_create();
 
     out.as.FN->length = c.as.FN->length;
     out.as.FN->insts = (BFInst*) malloc(sizeof(BFInst) * out.as.FN->length);
     memcpy(out.as.FN->insts, c.as.FN->insts, sizeof(BFInst) * out.as.FN->length);
-    return out;
   }
+  else {
+    out.type = TYPE_VALUE;
+    out.as.VALUE = c.as.VALUE;
+  }
+  return out;
 }

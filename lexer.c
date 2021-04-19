@@ -82,7 +82,7 @@ int lex_file(const char* fpath, BFVM* vm) {
         while (!(c == EOF || c == '*')) {
           c = getc(f);
         }
-        if (c == EOF) { throw_fault("unterminated mulit-line comment"); }
+        if (c == EOF) { throw_fault("unterminated multi-line comment"); }
         break;
 
       default:

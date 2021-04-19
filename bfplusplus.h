@@ -11,6 +11,8 @@
 #include "mltrack/mltrack.h"
 #endif
 
+typedef uint16_t size_bf;
+
 typedef enum _BFInst BFInst;
 typedef struct _BFInstructions BFInstructions;
 typedef struct _BFCell BFCell;
@@ -44,7 +46,7 @@ struct _BFCell {
 
   union {
     BFFn* FN;
-    uint16_t VALUE;
+    size_bf VALUE;
   } as;
 };
 
@@ -54,7 +56,7 @@ struct _BFCell {
 
 struct _BFVM {
   BFCell* tape;
-  uint16_t tape_length;
+  size_bf tape_length;
   BFCell* ptr;
 
   BFInstructions instructions;
@@ -65,12 +67,12 @@ struct _BFVM {
 
 struct _BFCall {
   BFCell* arguments;
-  uint16_t arg_count;
+  size_bf arg_count;
 
   BFFn* fn;
 
   BFCell* results;
-  uint16_t res_count;
+  size_bf res_count;
 };
 
 /* ---- */
@@ -82,8 +84,8 @@ int lex_file(const char* fpath, BFVM* vm);
 void throw_fault(const char* msg);
 void cell_destroy(BFCell cell);
 void cells_dump(BFVM* vm);
-uint16_t b_getchar();
-void b_putchar(uint16_t c);
+size_bf b_getchar();
+void b_putchar(size_bf c);
 
 BFFn* fn_create();
 void fn_destroy(BFFn* fn);
@@ -97,7 +99,7 @@ void vm_destroy(BFVM* vm);
 /* bfplusplus.c */
 void vm_grow_tape(BFVM* vm);
 void run_function_call(BFVM* vm, BFCall* call);
-int vm_run(BFVM* vm);
+void vm_run(BFVM* vm);
 
 
 #endif /* BF_PLUS_PLUS_H */

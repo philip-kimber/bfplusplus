@@ -16,21 +16,21 @@ int enter_raw_mode() {
   console = GetStdHandle(STD_INPUT_HANDLE);
   if (console == INVALID_HANDLE_VALUE) {
     last_error = GetLastError();
-    printf("Error with GetStdHandle %08X\n", last_error);
+    printf("Error with GetStdHandle %08lX\n", last_error);
     return 1;
   }
 
   success = GetConsoleMode(console, &old_console_mode);
   if (success == 0) {
     last_error = GetLastError();
-    printf("Error with GetConsoleMode %08X\n", last_error);
+    printf("Error with GetConsoleMode %08lX\n", last_error);
     return 1;
   }
 
   success = SetConsoleMode(console, target_mode);
   if (success == 0) {
     last_error = GetLastError();
-    printf("Error with GetConsoleMode %08X\n", last_error);
+    printf("Error with GetConsoleMode %08lX\n", last_error);
     return 1;
   }
 
@@ -48,7 +48,7 @@ int exit_raw_mode() {
     success = SetConsoleMode(console, old_console_mode);
     if (success == 0) {
       last_error = GetLastError();
-      printf("Error with GetConsoleMode %08X\n", last_error);
+      printf("Error with GetConsoleMode %08lX\n", last_error);
       return 1;
     }
 
