@@ -117,7 +117,7 @@ The ``hello world`` of Brainfuck seems to be the `cat` program because of how si
 ```
 ,[.,]
 ```
-For the ease of this example working as intended, the BF++ interpreter sends `EOF` as `0` regardless of how it is defined in C. All other characters are sent directly as they are received by `getchar()`, cast to `unsigned char`.
+For the ease of this example working as intended, the BF++ interpreter sends `EOF` as `0` regardless of how it is defined in C. In Windows cmd, `EOF` can be sent with `Ctrl+Z`. All other characters are sent directly as they are received by `getchar()`, cast to `unsigned char`.
 
 However, with a simple command line Brainfuck interpreter we notice that the input is (typically) line-buffered, so the `,` instruction prompts the user for a whole line but only takes the first character.
 
